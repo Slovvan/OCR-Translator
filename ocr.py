@@ -2,10 +2,16 @@ import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QRubberBand, QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt5.QtCore import Qt, QEvent, QObject, QRect, QPoint
 from PyQt5.QtGui import QPixmap, QScreen 
+from PIL import ImageGrab
+import pytesseract
+from textblob import TextBlob
+from googletrans import Translator
+from log import logWindow
 
 class OcrWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.setWindowTitle("ocr")
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
 
@@ -13,6 +19,12 @@ class OcrWindow(QMainWindow):
         #to save mouse position
         self.mouse_pos_x = 0
         self.mouse_pos_y = 0
+        self.is_resizing = False
+        self.resize_margin = 10  # Define margin for resizing
+
+        self.log_window = logWindow() 
+
+    
 
     def UI(self):
         button_style = "color: rgb(255, 255, 255);" \
@@ -33,11 +45,18 @@ class OcrWindow(QMainWindow):
 
         #close window
         button.clicked.connect(self.close)
+
+        button2 = QPushButton("Capture")
+        button2.setFixedSize(85, 30)
+        button2.setStyleSheet(button_style)
+
+        button2.clicked.connect(self.screenShot)
         
         #Instance of horizontal part of the window
         HLayout = QHBoxLayout()
         HLayout.addStretch(1)
         HLayout.addWidget(button)
+        HLayout.addWidget(button2)
         HLayout.addStretch(1)
         
         #Instance of vertical part of the window
@@ -51,7 +70,7 @@ class OcrWindow(QMainWindow):
         cLayout.setStyleSheet(widget_style)
         cLayout.setMouseTracking(True)
         cLayout.installEventFilter(self)
-        cLayout.setFixedSize(400,200)
+       
 
         #set window with the new box window
         self.setCentralWidget(cLayout)
@@ -60,31 +79,91 @@ class OcrWindow(QMainWindow):
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.LeftButton:
             QApplication.setOverrideCursor(Qt.ArrowCursor)
+            self.is_resizing = False
+
 
     #changes coordenates to move window later
     def mousePressEvent(self, event):
         if event.button() == Qt.LeftButton:
             self.mouse_pos_x = event.pos().x()
             self.mouse_pos_y = event.pos().y()
+        
+         # Check if it's within the resize area
+        if (self.width() - event.pos().x() <= self.resize_margin) or (self.height() - event.pos().y() <= self.resize_margin):
+            self.is_resizing = True
+            QApplication.setOverrideCursor(Qt.SizeFDiagCursor)  # Resize cursor
 
     #move window
     def eventFilter(self, source: QObject, event: QEvent) -> bool:
-        #use move event
+          # Only process mouse move events
         if event.type() == QEvent.MouseMove:
-            #only move when clicked
-            if event.buttons() & Qt.LeftButton:
+            if self.is_resizing:
+                # Resize window based on mouse movement
+                dx = event.pos().x() - self.mouse_pos_x
+                dy = event.pos().y() - self.mouse_pos_y
+                self.resize(self.width() + dx, self.height() + dy)
+                self.mouse_pos_x = event.pos().x()
+                self.mouse_pos_y = event.pos().y()
+            elif event.buttons() & Qt.LeftButton:
                 QApplication.setOverrideCursor(Qt.SizeAllCursor)
-                #claculates new coordinates 
                 self.move(event.globalPos().x() - self.mouse_pos_x,
-                          event.globalPos().y() - self.mouse_pos_y,)
-            else: return False
-        else: return False
+                        event.globalPos().y() - self.mouse_pos_y)
+            return True  # We handled the event
+        else:
+            return False
     
-        return True
+    def Translation(self, img):
+        ocr_result = pytesseract.image_to_string(img)
+        print(ocr_result)
+        
+        if ocr_result == "":
+            print("There is no text")
+        else:
+            if self.log_window:
+                self.log_window.add_text(f"Text OCR: {ocr_result} ")
+            # Analyze with TextBlob
+            blob = TextBlob(ocr_result)
+            sentiment = blob.sentiment
+            print(f"Sentiment Analysis - Polarity: {sentiment.polarity}, Subjectivity: {sentiment.subjectivity}")
+
+            # Translate with googletrans
+            translator = Translator()
+            try:
+                translation = translator.translate(ocr_result, src="es", dest="en")
+                print("Translation:", translation.text)
+            except Exception as e:
+                print("Translation Error:", e)
+            
+            self.log_window.add_text(f"Translated Text OCR: {translation.text} ")
+            self.log_window.show()
+       
+    
+    def screenShot(self):
+        # get geometry of the central widget without borders
+        widget_geom = self.centralWidget().geometry()
+
+        #Turn local coordenates from the central widget to global
+        topLeft = self.centralWidget().mapToGlobal(widget_geom.topLeft())
+        bottomRight = self.centralWidget().mapToGlobal(widget_geom.bottomRight())
+
+        # get coordenates from the screen
+        x1, y1 = topLeft.x(), topLeft.y()
+        x2, y2 = bottomRight.x(), bottomRight.y()
+
+        # screenshot insede the limits
+        im = ImageGrab.grab(bbox=(x1, y1, x2, y2))
+
+        ocr_text = self.Translation(im)
+
+        def log_windowD(self):
+            """Return the log window instance."""
+            return self.log_window
+    
 
 def main():
     app = QApplication(sys.argv)
     window = OcrWindow()
+    window.resize(400, 200)
     window.show()
     sys.exit(app.exec_())
 
