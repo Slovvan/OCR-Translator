@@ -20,7 +20,7 @@ class OcrWindow(QMainWindow):
         self.mouse_pos_x = 0
         self.mouse_pos_y = 0
         self.is_resizing = False
-        self.resize_margin = 10  # Define margin for resizing
+        self.resize_margin = 10  # Define margin for resizing window
 
         self.log_window = logWindow() 
 
@@ -38,7 +38,7 @@ class OcrWindow(QMainWindow):
                        "border-width: 2px;" \
                        "border-radius: 2px;" \
                        "background-color: rgba(255, 255, 255, 2);"
-        # Instance of a button
+        # Instance of a button to close
         button = QPushButton("close")
         button.setFixedSize(85, 30)
         button.setStyleSheet(button_style)
@@ -112,7 +112,8 @@ class OcrWindow(QMainWindow):
         else:
             return False
     
-    def Translation(self, img):
+    #Send text captured to log
+    def SendText(self, img):
         ocr_result = pytesseract.image_to_string(img)
         print(ocr_result)
         
@@ -120,22 +121,9 @@ class OcrWindow(QMainWindow):
             print("There is no text")
         else:
             if self.log_window:
-                self.log_window.add_text(f"Text OCR: {ocr_result} ")
-            # Analyze with TextBlob
-            blob = TextBlob(ocr_result)
-            sentiment = blob.sentiment
-            print(f"Sentiment Analysis - Polarity: {sentiment.polarity}, Subjectivity: {sentiment.subjectivity}")
-
-            # Translate with googletrans
-            translator = Translator()
-            try:
-                translation = translator.translate(ocr_result, src="es", dest="en")
-                print("Translation:", translation.text)
-            except Exception as e:
-                print("Translation Error:", e)
-            
-            self.log_window.add_text(f"Translated Text OCR: {translation.text} ")
-            self.log_window.show()
+                self.log_window.add_text(ocr_result)
+                self.log_window.show()
+         
        
     
     def screenShot(self):
@@ -153,11 +141,7 @@ class OcrWindow(QMainWindow):
         # screenshot insede the limits
         im = ImageGrab.grab(bbox=(x1, y1, x2, y2))
 
-        ocr_text = self.Translation(im)
-
-        def log_windowD(self):
-            """Return the log window instance."""
-            return self.log_window
+        ocr_text = self.SendText(im)
     
 
 def main():

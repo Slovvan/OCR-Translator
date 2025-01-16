@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QWidget, QGridLayout, QTextEdit, QVBoxLayout
 from PyQt5.QtCore import Qt
-
+from googletrans import Translator
 
 class logWindow(QMainWindow):
     def __init__(self):
@@ -19,7 +19,19 @@ class logWindow(QMainWindow):
 
 
     def add_text(self, text):
-        self.log_text.append(text)
+        self.log_text.append(f"Ocr text: {text}")
+
+        translated = self.translate(text)
+        self.log_text.append(f"Translated Text OCR: {translated} ")
+
+    def translate(self, text):
+        translator = Translator()
+        translation = translator.translate(text, src="es", dest="en")
+
+        return translation.text
+
+    
+
 
 def main():
     app = QApplication(sys.argv)

@@ -14,6 +14,7 @@ class mainWindow(QMainWindow):
         self.initUI()
 
         self.windows = {}
+        self.ocr_instance = OcrWindow()
         self.bWindowOcr
         self.bWindowLog
 
@@ -44,7 +45,7 @@ class mainWindow(QMainWindow):
     def ocrwindow_onClick(self):
         window_name = "OCR" 
         if self.bWindowOcr.text() == "Start OCR":
-            self.windows[window_name] = OcrWindow()
+            self.windows[window_name] = self.ocr_instance
             self.windows[window_name].show()
             self.bWindowOcr.setText("Close OCR")
         elif window_name in self.windows:  # Check if the OCR window is open
@@ -55,10 +56,12 @@ class mainWindow(QMainWindow):
 
     
     def logWindow_onClick(self):
-        if 1:
-            pass
+        window_name = "logwindow"
+        if window_name not in self.windows:
+            self.windows[window_name] = self.ocr_instance.log_window
+            self.windows[window_name].show()
         else:
-            self.windows["log_window"].raise_()
+            self.windows[window_name].raise_()
        
 
 def main():
