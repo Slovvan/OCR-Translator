@@ -113,12 +113,10 @@ class OcrWindow(QMainWindow):
             return True  # We handled the event
         else:
             return False
-    
+
     #Send text captured to log
     def SendText(self, img):
-        ocr_result = pytesseract.image_to_string(img, config="--psm 6 --oem 3")
-        blob = TextBlob(ocr_result)
-        print(blob.correct())
+        ocr_result = pytesseract.image_to_string(img,  lang='spa', config='--psm 6')
         print(ocr_result)
         
         if ocr_result == "":
@@ -145,30 +143,9 @@ class OcrWindow(QMainWindow):
         # screenshot insede the limits
         im = ImageGrab.grab(bbox=(x1, y1, x2, y2))
 
-        preprocessing = self.preprocess_image(im)
-
-        ocr_text = self.SendText(preprocessing)
+        ocr_text = self.SendText(im)
 
     
-
-
-
-    def preprocess_image(self, img):
-            # Convert PIL image to numpy array
-        img = np.array(img)
-
-            # Convert to grayscale
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-            # Apply Gaussian blur to reduce noise
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-
-            # Apply adaptive thresholding
-        processed_img = cv2.adaptiveThreshold(
-            blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-        )
-
-        return processed_img
     
 
 def main():
