@@ -4,7 +4,7 @@ import pytesseract
 from PyQt5.QtWidgets import QApplication, QMainWindow, QRubberBand, QWidget, QVBoxLayout, QHBoxLayout, QPushButton
 from PyQt5.QtCore import Qt, QEvent, QObject, QRect, QPoint
 from PyQt5.QtGui import QPixmap, QScreen 
-from PIL import ImageGrab
+from PIL import ImageGrab, Image
 from log import logWindow
 from textblob import TextBlob
 
@@ -116,7 +116,13 @@ class OcrWindow(QMainWindow):
 
     #Send text captured to log
     def SendText(self, img):
-        ocr_result = pytesseract.image_to_string(img,  lang='spa', config='--psm 6')
+        #transform pil image into cv for preprocessing
+        img_cv2 = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR) # Convert PIL to OpenCV (BGR)
+
+        processed = self.morphological_operations(img_cv2)  #Separate text in rows
+
+        pil_image = Image.fromarray(processed)  # Convert back to PIL for Tesseract
+        ocr_result = pytesseract.image_to_string(pil_image,  lang='spa', config='--psm 6')
         print(ocr_result)
         
         if ocr_result == "":
@@ -146,7 +152,15 @@ class OcrWindow(QMainWindow):
         ocr_text = self.SendText(im)
 
     
+    def morphological_operations(self, img):
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))  # Define a small kernel
+        processed = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)  # Apply closing to fill gaps
+        return processed
+
     
+ 
+
+
 
 def main():
     app = QApplication(sys.argv)
