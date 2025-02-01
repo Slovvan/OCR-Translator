@@ -1,23 +1,27 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QWidget, QGridLayout
 from PyQt5.QtCore import Qt
-from ocr import OcrWindow
-from pruebas import MainWindow
 
-class cardWindow(QMainWindow):
+
+class deckWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("OCR Translator")
-        self.setGeometry(500, 600, 300, 400)
-        
+        self.setWindowTitle("Deck")
+        self.setGeometry(700, 700, 300, 400)
+
         self.initUI()
 
     def initUI(self):
         pass
 
+    def createCard(self, word, phrase):
+        print (word, phrase)
+        pass
+
+
 def main():
     app = QApplication(sys.argv)
-    window = cardWindow()
+    window = deckWindow()
     window.show()
     sys.exit(app.exec_())
 

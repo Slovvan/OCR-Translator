@@ -1,137 +1,166 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QWidget, QToolTip, QTextEdit, QVBoxLayout
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication, QMainWindow, QToolTip, QTextEdit
+from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtGui import QTextCursor
 from googletrans import Translator
-from textblob import Word
+import nltk
+from nltk.corpus import wordnet
+from tooltip import tooltipWindow
+from cards import deckWindow
+
+# Check if WordNet is already downloaded
+""" try:
+    nltk.data.find('corpora/wordnet')
+except LookupError:
+    nltk.download('wordnet')
+    nltk.download('omw-1.4')  # Multilingual WordNet """
+
 
 class logWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Log")
         self.setGeometry(500, 600, 300, 400)
-        
         self.initUI()
         self.translator = Translator()
-    
+        
+        self.deck = deckWindow()
+        self.tooltip = tooltipWindow()
+        self.stayOpen = False
+        self.translated_phrase = ""  # store complete translations
+        self.word_translations = {}  # Store word translations and details
+        self.words_in_deck = []
+
     def initUI(self):
         self.log_text = QTextEdit(self)
         self.log_text.setGeometry(0,0 , 300, 400)
         self.log_text.setReadOnly(True)
         self.log_text.viewport().installEventFilter(self)  # Install event filter on the QTextEdit viewport
-        self.word_translations = {} 
+        
+        
+    def add_text(self, text):
+        #empty phrase to avoid giving previous text 
+        self.translated_phrase = ""
+        # Original and translated sentence
+        self.log_text.append(f"OCR text: {text}")
+
+        self.translated_phrase = self.translate(text)
+        self.log_text.append(f"Translated Text OCR: {self.translated_phrase} \n")
+
+        # Add words with translations
+        words = text.split()
+        self.translate_words(words)
         
 
-
-    def add_text(self, text):
-        #original and translated sentence
-        self.log_text.append(f"Ocr text: {text}")
-
-        translated = self.translate(text)
-        self.log_text.append(f"Translated Text OCR: {translated} \n")
-
-       # Add words with translations
-        words = text.split()
-        translated_words = self.translate_words(words)
-        self.word_translations = translated_words  # Store for hover detection
         for word in words:
             self.log_text.insertPlainText(word + " ")
 
-    def translate_words(self,words):
-          translated_words = {}
+    def translate_words(self, words):
+        
 
-          for word in words:
-                # Translate the word to English first to get meaningful synonyms
-                translated_word = self.translate(word)
-                blob = Word(translated_word)
-                lemma = blob.lemmatize()  # Use the core meaning of words
-                
-                # Get synonyms and meanings in English
-                word_obj = Word(lemma)
-                synonyms = word_obj.synsets
-                meanings = [syn.definition() for syn in synonyms]
-                
-                # Translate synonyms back to Spanish
-                synonyms_es = []
-                for syn in synonyms[:3]:  # Limit the number of synonyms
-                    synonym = syn.name().split('.')[0]  # Get the word without part of speech
-                    synonyms_es.append(self.translator.translate(synonym, src="en", dest="es").text)
-
-                translated_words[word] = {
-                    'translation': translated_word, 
-                    'synonyms': synonyms_es, 
-                    'meanings': meanings
-                }
+        for word in words:
+            # Get synonyms and meanings using WordNet
+            synonyms, meanings = self.get_synonyms_and_meanings(word)
             
-                return translated_words
+            # Translate the word to English for consistency
+            translated_word = self.translate(word)
+            
+            # Translate the English synonyms to Spanish
+            synonyms_es = [self.translate(synonym) for synonym in synonyms]
+            
+            #store for hover detection
+            self.word_translations[word] = {
+                'translation': translated_word, 
+                'synonyms': synonyms_es, 
+                'meanings': meanings
+            }
+
+        return self.word_translations  # Return after processing all words
 
     def translate(self, text):
         translation = self.translator.translate(text, src="auto", dest="en")
-
         return translation.text
 
-    def get_meaning_in_english(self, word):
-        try:
-            word_obj = Word(word)
-            synonyms = word_obj.synsets  # Get synsets (related to meanings)
-            meanings = [syn.definition() for syn in synonyms]
-            return meanings[0] if meanings else "No definition found"
-        except Exception as e:
-            return "No definition found"
-
-    def get_synonyms_in_spanish(self, word):
-        try:
-            word_obj = Word(word)
-            synonyms = word_obj.synsets  # Get synsets
-            synonym_words = set()
-
-            for syn in synonyms:
-                for lemma in syn.lemmas():
-                    # Translate each synonym to Spanish
-                    translated_synonym = self.translate(lemma.name())
-                    synonym_words.add(translated_synonym.lower())
-
-            return list(synonym_words) if synonym_words else ["No synonyms found"]
-        except Exception as e:
-            return ["No synonyms found"]
+    def get_synonyms_and_meanings(self, word):
+        # Get synonyms and meanings using NLTK WordNet
+        synonyms = set()
+        meanings = []
         
-    def eventFilter(self, source, event):
-        #Verify if the event is comming from the QTextEdit viewport and if its a mouse one
-        if source is self.log_text.viewport() and event.type() == event.MouseMove:
-            #Gets the text cursor on the position of the mouse
-            cursor = self.log_text.cursorForPosition(event.pos())
-            
-            cursor.select(QTextCursor.WordUnderCursor)
-            hovered_word = cursor.selectedText()
+        # Get synsets for the word
+        for syn in wordnet.synsets(word):
+            # Add the lemma names (synonyms) to the set
+            for lemma in syn.lemmas():
+                synonyms.add(lemma.name())  # Add synonyms
 
-            #Verify if the selected word has a translation in self.word_translation
-            if hovered_word in self.word_translations:
-                translated_word = self.word_translations[hovered_word]['translation']
-                synonyms = self.word_translations[hovered_word]['synonyms']
-                meaning = self.word_translations[hovered_word]['meanings']
+            # Get the definition of the synset (meaning)
+            meanings.append(syn.definition())
+        
+        # Limit the number of synonyms
+        synonyms = list(synonyms)[:3]
+        
+        return synonyms, meanings
+
+    def eventFilter(self, source, event):
+        # Check if the event is coming from the QTextEdit viewport and if it's a mouse move
+        if source is self.log_text.viewport():
+            
+            if event.type() == event.MouseMove:
+                # Get the text cursor at the mouse position
+                cursor = self.log_text.cursorForPosition(event.pos())
+                cursor.select(QTextCursor.WordUnderCursor)
+                hovered_word = cursor.selectedText()
+            
+
+                # Verify if the selected word has a translation in self.word_translations
+                if hovered_word in self.word_translations:
+                    translated_word = self.word_translations[hovered_word]['translation']
+                    synonyms = self.word_translations[hovered_word]['synonyms']
+                    meanings = self.word_translations[hovered_word]['meanings']
+                    position = self.mapToGlobal(event.pos()) + QPoint(10, 10)
+
+                    info = {
+                        "word": hovered_word,
+                        "translation": translated_word,
+                        "synonyms": synonyms,
+                        "meanings": meanings,
+                        "position": position
+                    }
+
+                    self.tooltip.saveInfo(info)
+
+                #hide window if a word is not being hovered
+                else:
+                    self.tooltip.hide()
+
+            if event.type() == event.MouseButtonPress:
+
+                cursor = self.log_text.cursorForPosition(event.pos())
+                cursor.select(QTextCursor.WordUnderCursor)
+                clicked_word = cursor.selectedText()
+
+                if clicked_word in self.words_in_deck:
+                    print("Word already in deck")
+                else:
+                    self.deck.createCard(clicked_word, self.translated_phrase)
+                    self.words_in_deck.append(clicked_word)
                 
                 # Construct the tooltip text
-                tooltip_text = f"{hovered_word} -> {translated_word}\nSynonyms: "
-                tooltip_text = f"{hovered_word} -> Meaning (EN): {meaning}\nSynonyms (ES): "
-                tooltip_text += ", ".join(synonyms) if synonyms else "None"
+                """ tooltip_text = f"{hovered_word} -> {translated_word}\n"
+                tooltip_text += f"Meaning (EN): {', '.join(meanings)}\n"
+                tooltip_text += f"Synonyms (ES): {', '.join(synonyms) if synonyms else 'None'}" """
 
-
-                #Show toolTip with translated word
-                QToolTip.showText(
-                    event.globalPos(),  # mouse Global position where it appears
+                # Show tooltip with translated word
+                """    QToolTip.showText(
+                    event.globalPos(),  # Global position where the tooltip appears
                     tooltip_text, 
-                    self.log_text,  # asociated Widget of the ToolTip
-                )
-            else:
-                QToolTip.hideText()
-        
-        #Returns the result of the metod eventFilter, allowing the normal processing of other events
+                    self.log_text,  # Associated widget of the tooltip
+                ) """
+                #QToolTip.hideText()
+
+        # Return the result of the event filter to allow normal processing of other events
         return super().eventFilter(source, event)
-
     
-
-
-
+    
 
 def main():
     app = QApplication(sys.argv)
@@ -142,3 +171,134 @@ def main():
 if __name__ == '__main__':
     main()
 
+""" 
+import sys
+from PyQt5.QtWidgets import QApplication, QMainWindow, QToolTip, QTextEdit
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QTextCursor
+from googletrans import Translator
+import nltk
+from nltk.corpus import wordnet
+
+# Check if WordNet is already downloaded
+try:
+    nltk.data.find('corpora/wordnet')
+except LookupError:
+    nltk.download('wordnet')
+    nltk.download('omw-1.4')  # Multilingual WordNet
+
+
+class logWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Log")
+        self.setGeometry(500, 600, 300, 400)
+        self.initUI()
+        self.translator = Translator()
+    
+    def initUI(self):
+        self.log_text = QTextEdit(self)
+        self.log_text.setGeometry(0,0 , 300, 400)
+        self.log_text.setReadOnly(True)
+        self.log_text.viewport().installEventFilter(self)  # Install event filter on the QTextEdit viewport
+        self.word_translations = {}  # Store word translations and details
+        
+    def add_text(self, text):
+        # Original and translated sentence
+        self.log_text.append(f"OCR text: {text}")
+
+        translated = self.translate(text)
+        self.log_text.append(f"Translated Text OCR: {translated} \n")
+
+        # Add words with translations
+        words = text.split()
+        translated_words = self.translate_words(words)
+        self.word_translations = translated_words  # Store for hover detection
+
+        for word in words:
+            self.log_text.insertPlainText(word + " ")
+
+    def translate_words(self, words):
+        translated_words = {}
+
+        for word in words:
+            # Get synonyms and meanings using WordNet
+            synonyms, meanings = self.get_synonyms_and_meanings(word)
+            
+            # Translate the word to English for consistency
+            translated_word = self.translate(word)
+            
+            # Translate the English synonyms to Spanish
+            synonyms_es = [self.translate(synonym) for synonym in synonyms]
+
+            translated_words[word] = {
+                'translation': translated_word, 
+                'synonyms': synonyms_es, 
+                'meanings': meanings
+            }
+
+        return translated_words  # Return after processing all words
+
+    def translate(self, text):
+        translation = self.translator.translate(text, src="auto", dest="en")
+        return translation.text
+
+    def get_synonyms_and_meanings(self, word):
+        # Get synonyms and meanings using NLTK WordNet
+        synonyms = set()
+        meanings = []
+        
+        # Get synsets for the word
+        for syn in wordnet.synsets(word):
+            # Add the lemma names (synonyms) to the set
+            for lemma in syn.lemmas():
+                synonyms.add(lemma.name())  # Add synonyms
+
+            # Get the definition of the synset (meaning)
+            meanings.append(syn.definition())
+        
+        # Limit the number of synonyms
+        synonyms = list(synonyms)[:3]
+        
+        return synonyms, meanings
+
+    def eventFilter(self, source, event):
+        # Check if the event is coming from the QTextEdit viewport and if it's a mouse move
+        if source is self.log_text.viewport() and event.type() == event.MouseMove:
+            # Get the text cursor at the mouse position
+            cursor = self.log_text.cursorForPosition(event.pos())
+            cursor.select(QTextCursor.WordUnderCursor)
+            hovered_word = cursor.selectedText()
+
+            # Verify if the selected word has a translation in self.word_translations
+            if hovered_word in self.word_translations:
+                translated_word = self.word_translations[hovered_word]['translation']
+                synonyms = self.word_translations[hovered_word]['synonyms']
+                meanings = self.word_translations[hovered_word]['meanings']
+                
+                # Construct the tooltip text
+                tooltip_text = f"{hovered_word} -> {translated_word}\n"
+                tooltip_text += f"Meaning (EN): {', '.join(meanings)}\n"
+                tooltip_text += f"Synonyms (ES): {', '.join(synonyms) if synonyms else 'None'}"
+
+                # Show tooltip with translated word
+                QToolTip.showText(
+                    event.globalPos(),  # Global position where the tooltip appears
+                    tooltip_text, 
+                    self.log_text,  # Associated widget of the tooltip
+                )
+            else:
+                QToolTip.hideText()
+
+        # Return the result of the event filter to allow normal processing of other events
+        return super().eventFilter(source, event)
+
+def main():
+    app = QApplication(sys.argv)
+    window = logWindow()
+    window.show()
+    sys.exit(app.exec_())
+
+if __name__ == '__main__':
+    main()
+ """

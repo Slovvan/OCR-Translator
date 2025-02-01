@@ -6,7 +6,7 @@ from PyQt5.QtCore import Qt, QEvent, QObject, QRect, QPoint
 from PyQt5.QtGui import QPixmap, QScreen 
 from PIL import ImageGrab, Image
 from log import logWindow
-from textblob import TextBlob
+
 
 import numpy as np
 
@@ -16,6 +16,7 @@ class OcrWindow(QMainWindow):
         self.setWindowTitle("ocr")
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
+        
 
         self.UI()
         #to save mouse position
