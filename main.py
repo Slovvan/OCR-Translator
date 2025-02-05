@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QWidget, QGridLayout
+from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QWidget, QGridLayout, QRadioButton, QLabel, QButtonGroup
 from PyQt5.QtCore import Qt
 from ocr import OcrWindow
 from pruebas import MainWindow
@@ -17,6 +17,10 @@ class mainWindow(QMainWindow):
         self.ocr_instance = OcrWindow()
         self.bWindowOcr
         self.bWindowLog
+
+        #Lang selection
+        self.org = ""
+        self.dest = ""
 
        
     def initUI(self):
@@ -36,9 +40,45 @@ class mainWindow(QMainWindow):
         self.bWindowLog.setStyleSheet(button_style)
         self.bWindowLog.clicked.connect(self.logWindow_onClick)
 
+        frm = QLabel("From:")
+        to = QLabel("To: ")
+
+        es1 = QRadioButton("Español")
+        es2 = QRadioButton("Español")
+        en1 = QRadioButton("English")
+        en2 = QRadioButton("English")
+        ja1 = QRadioButton("日本語")
+        ja2 = QRadioButton("日本語")
+        fr1 = QRadioButton("Français")
+        fr2 = QRadioButton("Français")
+        
+        fromGroup = QButtonGroup(self)
+        fromGroup.buttonClicked.connect(lambda button: self.Selectlanguage(button.text(), "origin"))
+        fromGroup.addButton(es1)
+        fromGroup.addButton(en1)
+        fromGroup.addButton(ja1)
+        fromGroup.addButton(fr1)
+        
+        toGroup = QButtonGroup(self)
+        toGroup.buttonClicked.connect(lambda button: self.Selectlanguage(button.text(), "destination")) #get clicked radiobutton and send name
+        toGroup.addButton(es2)
+        toGroup.addButton(en2)
+        toGroup.addButton(ja2)
+        toGroup.addButton(fr2)
+
         grid = QGridLayout()
-        grid.addWidget(self.bWindowOcr, 0, 1)
-        grid.addWidget(self.bWindowLog, 0, 2)
+        grid.addWidget(frm, 0,1)
+        grid.addWidget(to, 0,2)
+        grid.addWidget(es1, 1,1)
+        grid.addWidget(es2, 1,2)
+        grid.addWidget(en1, 2,1)
+        grid.addWidget(en2, 2,2)
+        grid.addWidget(ja1, 3,1)
+        grid.addWidget(ja2, 3,2)
+        grid.addWidget(fr1, 4,1)
+        grid.addWidget(fr2, 4,2)
+        grid.addWidget(self.bWindowOcr, 5, 1)
+        grid.addWidget(self.bWindowLog, 5, 2)
 
         central_widget.setLayout(grid)
 
@@ -62,6 +102,35 @@ class mainWindow(QMainWindow):
             self.windows[window_name].show()
         else:
             self.windows[window_name].raise_()
+
+    def Selectlanguage(self, lang, group):
+        if(lang == "Español"):
+            if group == "origin":
+                self.org = "es"
+            else:
+                self.dest = "es"
+        elif(lang == "English"):
+            if group == "origin":
+                self.org = "en"
+            else:
+                self.dest = "en"
+        elif(lang == "日本語"):
+            if group == "origin":
+                self.org = "ja"
+            else:
+                self.dest = "ja"
+        elif(lang == "Français"):
+            if group == "origin":
+                self.org = "fr"
+            else:
+                self.dest = "fr"
+        print(self.org, self.dest)
+        self.ocr_instance.selectLang(self.org)
+        
+        self.ocr_instance.log_window.selectLang(self.org)
+        self.ocr_instance.log_window.desLang = self.dest
+            
+
        
 
 def main():

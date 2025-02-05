@@ -4,10 +4,15 @@ from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtGui import QTextCursor
 from googletrans import Translator
 import nltk
+import spacy
+from nltk.wsd import lesk 
 from nltk.corpus import wordnet
 from tooltip import tooltipWindow
 from cards import deckWindow
 
+nlp = spacy.load("es_core_news_sm")
+
+#nltk.download('punkt')
 # Check if WordNet is already downloaded
 """ try:
     nltk.data.find('corpora/wordnet')
@@ -30,6 +35,9 @@ class logWindow(QMainWindow):
         self.translated_phrase = ""  # store complete translations
         self.word_translations = {}  # Store word translations and details
         self.words_in_deck = []
+        
+        self.orLang = "spa"
+        self.desLang = "en"
 
     def initUI(self):
         self.log_text = QTextEdit(self)
@@ -55,49 +63,45 @@ class logWindow(QMainWindow):
         for word in words:
             self.log_text.insertPlainText(word + " ")
 
-    def translate_words(self, words):
-        
 
+    def translate_words(self, words):
         for word in words:
-            # Get synonyms and meanings using WordNet
+            # Get synonyms and meanings using WordNet and giving a specified lang
             synonyms, meanings = self.get_synonyms_and_meanings(word)
             
             # Translate the word to English for consistency
             translated_word = self.translate(word)
             
-            # Translate the English synonyms to Spanish
-            synonyms_es = [self.translate(synonym) for synonym in synonyms]
-            
             #store for hover detection
             self.word_translations[word] = {
                 'translation': translated_word, 
-                'synonyms': synonyms_es, 
+                'synonyms': synonyms, 
                 'meanings': meanings
             }
 
         return self.word_translations  # Return after processing all words
 
-    def translate(self, text):
-        translation = self.translator.translate(text, src="auto", dest="en")
+    def translate(self, text):        
+        translation = self.translator.translate(text, src="auto", dest=self.desLang)
         return translation.text
 
     def get_synonyms_and_meanings(self, word):
-        # Get synonyms and meanings using NLTK WordNet
         synonyms = set()
         meanings = []
         
-        # Get synsets for the word
-        for syn in wordnet.synsets(word):
-            # Add the lemma names (synonyms) to the set
-            for lemma in syn.lemmas():
-                synonyms.add(lemma.name())  # Add synonyms
+        # Query WordNet for synsets using the specified language.
+        synsets = wordnet.synsets(word, lang=self.orLang)
+        for syn in synsets:
+            # Add the lemma names (synonyms) to the set with a specified lang
+            for lemma in syn.lemmas(self.orLang):
+                synonyms.add(lemma.name()) # Add synonyms
 
-            # Get the definition of the synset (meaning)
-            meanings.append(syn.definition())
+                # Get the definition of the synset (meaning)
+            meanings.append(self.translate(syn.definition()))
         
         # Limit the number of synonyms
         synonyms = list(synonyms)[:3]
-        
+
         return synonyms, meanings
 
     def eventFilter(self, source, event):
@@ -160,7 +164,22 @@ class logWindow(QMainWindow):
         # Return the result of the event filter to allow normal processing of other events
         return super().eventFilter(source, event)
     
+    def selectLang(self, lang):
+        if lang == "es":
+            self.orlang = "spa"
+        elif lang == "en":
+            self.orlang = "eng"
+        elif lang == "ja":
+            self.orlang = "jpn"
+        elif lang == "fr":
+            self.orlang = "fra"
     
+
+
+        
+
+        
+        
 
 def main():
     app = QApplication(sys.argv)

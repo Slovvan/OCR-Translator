@@ -14,7 +14,7 @@ class OcrWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("ocr")
-        self.setWindowFlags(Qt.FramelessWindowHint)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         
 
@@ -23,9 +23,12 @@ class OcrWindow(QMainWindow):
         self.mouse_pos_x = 0
         self.mouse_pos_y = 0
         self.is_resizing = False
-        self.resize_margin = 10  # Define margin for resizing window
+        self.resize_margin = 10  # Define margin for resizing window            こんにちは
 
         self.log_window = logWindow() 
+
+        #selected lang
+        self.lang = "spa"
 
     
 
@@ -123,7 +126,7 @@ class OcrWindow(QMainWindow):
         processed = self.morphological_operations(img_cv2)  #Separate text in rows
 
         pil_image = Image.fromarray(processed)  # Convert back to PIL for Tesseract
-        ocr_result = pytesseract.image_to_string(pil_image,  lang='spa', config='--psm 6')
+        ocr_result = pytesseract.image_to_string(pil_image,  lang=self.lang, config='--psm 6')
         print(ocr_result)
         
         if ocr_result == "":
@@ -157,6 +160,17 @@ class OcrWindow(QMainWindow):
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))  # Define a small kernel
         processed = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)  # Apply closing to fill gaps
         return processed
+    
+    def selectLang(self, lang):
+        if lang == "es":
+            self.lang = "spa"
+        elif lang == "en":
+            self.lang = "eng"
+        elif lang == "ja":
+            self.lang = "jpn"
+        elif lang == "fr":
+            self.lang = "fra"
+        
 
     
  

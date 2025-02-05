@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QMainWindow, QApplication, QPushButton, QWidget, QVBoxLayout, QHBoxLayout, QLabel
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QPoint
 
 
 class tooltipWindow(QMainWindow):
@@ -9,9 +9,9 @@ class tooltipWindow(QMainWindow):
         self.setWindowTitle("Information window")
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.info = QLabel("Informacion de prueba")
+        self.info.setWordWrap(True)  # Allow text wrapping
         self.UI()
-        
-    
+
 
     def UI(self):
         button_style = "color: rgb(255, 255, 255);" \
@@ -23,21 +23,11 @@ class tooltipWindow(QMainWindow):
         widget_style = "background-color:#808080;"
 
         
-        self.info.setFixedSize(300, 100)
-        
-        # Instance of a button to save word in card
-        button = QPushButton("save")
-        button.setFixedSize(85, 30)
-        button.setStyleSheet(button_style)
-
-        #close window
-        button.clicked.connect(self.saveInfo)
-
+        self.info.adjustSize()
         
         #Instance of horizontal part of the window
         HLayout = QHBoxLayout()
         HLayout.addStretch(1)
-        HLayout.addWidget(button)
         HLayout.addStretch(1)
         
         #Instance of vertical part of the window
@@ -53,38 +43,32 @@ class tooltipWindow(QMainWindow):
         cLayout.setMouseTracking(True)
         cLayout.installEventFilter(self)
         
-       
-
         #set window with the new box window
         self.setCentralWidget(cLayout)
     
     def saveInfo(self, info):
-        text = f"<b>{info["word"]}</b> -> {info["translation"]}<br>"
-        text += f"<b>Meaning: </b> {','.join(info["meanings"])}<br>"
-        text += f"<b>Synonyms: </b> {','.join(info["synonyms"]) if info["synonyms"] else 'none'}<br>"
+        """Update and display word details in the pop-up window."""
+        text = f"<b>{info['word']}</b> -> {info['translation']}<br>"
+        text += f"<b>Meaning: </b> {','.join(info['meanings'])}<br>"
+        text += f"<b>Synonyms: </b> {','.join(info['synonyms']) if info['synonyms'] else 'none'}<br>"
 
         self.info.setText(text)
-        self.move(info["position"])
-        self.show()
-
-
-
-def show_info(self, word, translation, synonyms, meanings, position):
-        """Update and display word details in the pop-up window."""
-        text = f"<b>{word}</b> → {translation}<br>"
-        text += f"<b>Meaning (EN):</b> {', '.join(meanings)}<br>"
-        text += f"<b>Synonyms (ES):</b> {', '.join(synonyms) if synonyms else 'None'}"
-
-        self.label.setText(text)
         self.adjustSize()
-        self.move(position)  # Move to cursor position
+        self.move(info["position"]) # Move to cursor position
         self.show()
-
 
 
 def main ():
     app = QApplication(sys.argv)
     window = tooltipWindow()
+        # Example usage with test data
+    example_data = {
+        "word": "Bonjour",
+        "translation": "Hello",
+        "meanings": ["A greeting", "Good day"],
+        "synonyms": ["Salut", "Coucou"],
+        "position": QPoint(500, 300)  # Example position on screen
+    }
     window.show()
     sys.exit(app.exec_())
 
