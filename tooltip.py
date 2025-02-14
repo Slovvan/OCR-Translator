@@ -7,7 +7,8 @@ class tooltipWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Information window")
-        self.setWindowFlags(Qt.FramelessWindowHint)
+        self.setWindowFlags(Qt.ToolTip | Qt.FramelessWindowHint)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)  # Allow mouse events to pass through, avoiding staying on top
         self.info = QLabel("Informacion de prueba")
         self.info.setWordWrap(True)  # Allow text wrapping
         self.UI()

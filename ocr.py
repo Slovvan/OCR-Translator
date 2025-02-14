@@ -1,9 +1,10 @@
 import sys
 import cv2
+import keyboard
 import pytesseract
-from PyQt5.QtWidgets import QApplication, QMainWindow, QRubberBand, QWidget, QVBoxLayout, QHBoxLayout, QPushButton
-from PyQt5.QtCore import Qt, QEvent, QObject, QRect, QPoint
-from PyQt5.QtGui import QPixmap, QScreen 
+from PyQt5.QtWidgets import QApplication, QMainWindow, QRubberBand, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, QLabel
+from PyQt5.QtCore import Qt, QEvent, QObject, QRect, QPoint, QTimer
+from PyQt5.QtGui import QPixmap, QScreen
 from PIL import ImageGrab, Image
 from log import logWindow
 
@@ -25,59 +26,30 @@ class OcrWindow(QMainWindow):
         self.is_resizing = False
         self.resize_margin = 10  # Define margin for resizing window            こんにちは
 
-        self.log_window = logWindow() 
-
         #selected lang
         self.lang = "spa"
 
-    
+        #instance of logwindow and ocrwindow instance as argument to use it in logwindow
+        self.log_window = logWindow(self) 
+
+        #the keyboard module runs in a different thread from QT 
+        #Use of QTimer to call screenShot() in the main GUI thread
+        keyboard.add_hotkey(".+-", lambda: QTimer.singleShot(0, self.screenShot))
 
     def UI(self):
-        button_style = "color: rgb(255, 255, 255);" \
-                       "background-color: rgba(6, 104, 249, 255);" \
-                       "border-color: rgba(151, 222, 247, 50);" \
-                       "border-width: 1px;" \
-                       "border-radius: 5px;"
-    
         widget_style = "border-color: rgba(255, 0, 0, 255);" \
                        "border-style: solid;" \
                        "border-width: 2px;" \
                        "border-radius: 2px;" \
                        "background-color: rgba(255, 255, 255, 2);"
-        # Instance of a button to close
-        button = QPushButton("close")
-        button.setFixedSize(85, 30)
-        button.setStyleSheet(button_style)
-
-        #close window
-        button.clicked.connect(self.close)
-
-        button2 = QPushButton("Capture")
-        button2.setFixedSize(85, 30)
-        button2.setStyleSheet(button_style)
-
-        button2.clicked.connect(self.screenShot)
-        
-        #Instance of horizontal part of the window
-        HLayout = QHBoxLayout()
-        HLayout.addStretch(1)
-        HLayout.addWidget(button)
-        HLayout.addWidget(button2)
-        HLayout.addStretch(1)
-        
-        #Instance of vertical part of the window
-        vLayout = QVBoxLayout()
-        vLayout.addStretch(1)
-        vLayout.addLayout(HLayout)
+    
 
         #Create a box widget
         cLayout = QWidget(self)
-        cLayout.setLayout(vLayout)
         cLayout.setStyleSheet(widget_style)
         cLayout.setMouseTracking(True)
         cLayout.installEventFilter(self)
        
-
         #set window with the new box window
         self.setCentralWidget(cLayout)
 
@@ -170,11 +142,6 @@ class OcrWindow(QMainWindow):
             self.lang = "jpn"
         elif lang == "fr":
             self.lang = "fra"
-        
-
-    
- 
-
 
 
 def main():
