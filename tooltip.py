@@ -49,9 +49,17 @@ class tooltipWindow(QMainWindow):
     
     def saveInfo(self, info):
         """Update and display word details in the pop-up window."""
-        text = f"<b>{info['word']}</b> -> {info['translation']}<br>"
+        text = ""
+        if info["lang"] == "jpn":
+            text += f"<b>Kanji: </b> {','.join(info['word_form'])}<br>"
+            text += f"<b>Reading: </b> {','.join(info['reading'])}<br>"
+        else:
+            text = f"<b>{info['word']}</b> -> {info['translation']}<br>"
+            text += f"<b>Synonyms: </b> {','.join(info['synonyms']) if info['synonyms'] else 'none'}<br>"
+            
         text += f"<b>Meaning: </b> {','.join(info['meanings'])}<br>"
-        text += f"<b>Synonyms: </b> {','.join(info['synonyms']) if info['synonyms'] else 'none'}<br>"
+
+
 
         self.info.setText(text)
         self.adjustSize()

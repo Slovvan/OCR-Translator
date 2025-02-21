@@ -7,6 +7,7 @@ from PyQt5.QtCore import Qt, QEvent, QObject, QRect, QPoint, QTimer
 from PyQt5.QtGui import QPixmap, QScreen
 from PIL import ImageGrab, Image
 from log import logWindow
+import unicodedata
 
 
 import numpy as np
@@ -24,7 +25,7 @@ class OcrWindow(QMainWindow):
         self.mouse_pos_x = 0
         self.mouse_pos_y = 0
         self.is_resizing = False
-        self.resize_margin = 10  # Define margin for resizing window            こんにちは
+        self.resize_margin = 10  # Define margin for resizing window            こんにちは  
 
         #selected lang
         self.lang = "spa"
@@ -98,16 +99,29 @@ class OcrWindow(QMainWindow):
         processed = self.morphological_operations(img_cv2)  #Separate text in rows
 
         pil_image = Image.fromarray(processed)  # Convert back to PIL for Tesseract
-        ocr_result = pytesseract.image_to_string(pil_image,  lang=self.lang, config='--psm 6')
-        print(ocr_result)
+        ocr_result = pytesseract.image_to_string(pil_image,  lang=self.lang, config='--psm 1')
+        ocr3 = pytesseract.image_to_string(pil_image,  lang=self.lang, config='--psm 3')
+        ocr4 = pytesseract.image_to_string(pil_image,  lang=self.lang, config='--psm 4')
+        ocr5 = pytesseract.image_to_string(pil_image,  lang=self.lang, config='--psm 5')
+        ocr6 = pytesseract.image_to_string(pil_image,  lang=self.lang, config='--psm 6')
+        """ print(ocr_result)
+        print(ocr3)
+        print(ocr4)
+        print(ocr5) """
+        print(ocr6)
         
-        if ocr_result == "":
+        if ocr6 == "":
             print("There is no text")
         else:
             if self.log_window:
-                self.log_window.add_text(ocr_result)
-                self.log_window.show()
+                if self.lang == "jpn":
+                    grouped_words = self.group_japanese_text(ocr6)
+                    print(grouped_words)
+                    self.log_window.add_text(grouped_words)
+                else:
+                    self.log_window.add_text(ocr6)
          
+                self.log_window.show()
        
     
     def screenShot(self):
@@ -132,6 +146,36 @@ class OcrWindow(QMainWindow):
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))  # Define a small kernel
         processed = cv2.morphologyEx(img, cv2.MORPH_CLOSE, kernel)  # Apply closing to fill gaps
         return processed
+
+   
+    def group_japanese_text(self, text):
+        """
+        Group characters into words based on common Japanese language patterns.
+        This approach assumes characters are output from OCR and are separated.
+        """
+        words = []
+        current_word = []
+        
+        # Loop through each character in the OCR output
+        for char in text:
+            # Check if the character is part of a Japanese word
+            if unicodedata.category(char) in ['Lo', 'Lm']:  # Lo -> Letter, Other; Lm -> Modifier Letters (mostly part of words)
+                current_word.append(char)
+            else:
+                # If we encounter a non-letter, end the current word and start a new one
+                if current_word:
+                    words.append(''.join(current_word))  # Join the characters to form a word
+                    current_word = []  # Reset for the next word
+                
+                # Add punctuation or spaces as individual "words" or tokens
+                if char.strip():
+                    words.append(char)
+
+        # Append the last word if there is one
+        if current_word:
+            words.append(''.join(current_word))
+
+        return ''.join(words)
     
     def selectLang(self, lang):
         if lang == "es":

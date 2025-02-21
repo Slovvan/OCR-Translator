@@ -10,6 +10,8 @@ from nltk.corpus import wordnet
 from tooltip import tooltipWindow
 from cards import deckWindow
 import re
+import requests
+from janome.tokenizer import Tokenizer
 
 nlp = spacy.load("es_core_news_sm")
 
@@ -40,6 +42,9 @@ class logWindow(QMainWindow):
         
         self.orLang = "spa"
         self.desLang = "en"
+
+        # Initialize Janome tokenizer for Japanese segmentation
+        self.tokenizer = Tokenizer()
 
     def initUI(self):
         #main layout
@@ -99,25 +104,33 @@ class logWindow(QMainWindow):
         self.log_text.append(f"Translated Text OCR: {self.translated_phrase} \n")
 
         # Add words with translations
-        words = text.split()
+        # words = text.split()
+        words = self.tokenize_japanese_text(text)  # Use Janome for better segmentation
         self.translate_words(words)
         
 
         for word in words:
             self.log_text.insertPlainText(word + " ")
 
+    def tokenize_japanese_text(self, text):
+        # Use Janome tokenizer to break the Japanese text into words
+        tokens = self.tokenizer.tokenize(text)
+        return [token.surface for token in tokens]
+
 
     def translate_words(self, words):
         for word in words:
             # Get synonyms and meanings using WordNet and giving a specified lang
-            synonyms, meanings = self.get_synonyms_and_meanings(word)
-            
-            # Translate the word to English for consistency
+            word_form, reading, synonyms, meanings = self.get_synonyms_and_meanings(word)
+
+            # Translate the word for consistency
             translated_word = self.translate(word)
-            
+
             #store for hover detection
             self.word_translations[word] = {
-                'translation': translated_word, 
+                'translation': translated_word,
+                'word_form': word_form,
+                'reading': reading,
                 'synonyms': synonyms, 
                 'meanings': meanings
             }
@@ -130,12 +143,54 @@ class logWindow(QMainWindow):
             return translation.text
         except Exception as e:
             print("Translation error: ", e)
+    
+    def lookup_jisho(self, word):
+        url = "https://jisho.org/api/v1/search/words"
+        params = {"keyword": word}
+        try:
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            if data.get("data"):
+                first_result = data["data"][0]
+                japanese_entry = first_result["japanese"][0]
+                word_form = japanese_entry.get("word", "")  # Kanji form if present.
+                reading = japanese_entry.get("reading", "")
+                senses = first_result.get("senses", [])
+                meanings = []
+                for sense in senses:
+                    meanings.extend(sense.get("english_definitions", []))
+                return {
+                    "word": word_form,
+                    "reading": reading,
+                    "meanings": meanings
+                }
+        except Exception as e:
+            print("Error looking up Jisho:", e)
+        return None
 
     def get_synonyms_and_meanings(self, word):
         synonyms = set()
         meanings = []
 
         cleaned_word = self.clean_word(word)
+
+        # If the language is Japanese, use Jisho lookup.
+        if self.orLang == "jpn":
+            jisho_data = self.lookup_jisho(cleaned_word)
+            if jisho_data:
+                print(jisho_data)
+                
+                word = jisho_data.get("word", word),
+                reading = jisho_data.get("reading", ""),
+                synonyms = [] # Jisho doesn't return synonyms
+                meanings = jisho_data.get("meanings", [])
+                return word, reading, synonyms, meanings
+            
+            else:
+                return [], [], [], []
+            
+            
         print(cleaned_word)
         # Query WordNet for synsets using the specified language.
         synsets = wordnet.synsets(cleaned_word, lang=self.orLang)
@@ -149,8 +204,14 @@ class logWindow(QMainWindow):
         
         # Limit the number of synonyms
         synonyms = list(synonyms)[:3]
+        """ {
+        "word": word,
+        "reading": "",
+        "synonyms": synonyms,
+        "meanings": meanings
+        } """
 
-        return synonyms, meanings
+        return [], [], synonyms, meanings
     
     def clean_word(self, word):
         # Keep only letters (including accents), numbers, hyphens, and apostrophes
@@ -174,14 +235,24 @@ class logWindow(QMainWindow):
                     synonyms = self.word_translations[hovered_word]['synonyms']
                     meanings = self.word_translations[hovered_word]['meanings']
                     position = self.mapToGlobal(event.pos()) + QPoint(10, 10)
+       
+                    word_form = self.word_translations[hovered_word]['word_form']
+                    reading = self.word_translations[hovered_word]['reading']
 
                     info = {
                         "word": hovered_word,
                         "translation": translated_word,
                         "synonyms": synonyms,
                         "meanings": meanings,
-                        "position": position
+                        "position": position,
+                        "word_form": meanings,
+                        "reading": reading,
+                        "lang": self.orLang
+                        
                     }
+                    if self.orLang == "jpn":
+                        info["word_form"] = word_form
+                        info["reading"] = reading
 
                     self.tooltip.saveInfo(info)
 
@@ -227,6 +298,35 @@ class logWindow(QMainWindow):
             self.orLang = "jpn"
         elif lang == "fr":
             self.orLang = "fra"
+
+    def update_tooltip(self, word, label):
+        word_data = self.get_synonyms_and_meanings(word)
+
+        if word_data:
+            word_text = word_data.get("word", word)
+            reading = word_data.get("reading", "")
+            synonyms = word_data.get("synonyms", [])
+            meanings = word_data.get("meanings", [])
+
+            # Construct tooltip text dynamically
+            tooltip_text = f"<b>{word_text}</b>"
+            if reading:
+                tooltip_text += f" ({reading})"
+
+            if meanings:
+                tooltip_text += "<br><b>Meanings:</b><ul>"
+                for meaning in meanings:
+                    tooltip_text += f"<li>{meaning}</li>"
+                tooltip_text += "</ul>"
+
+            if synonyms:
+                tooltip_text += "<br><b>Synonyms:</b> " + ", ".join(synonyms)
+
+            label.setToolTip(tooltip_text)  # Set tooltip to QLabel
+
+
+    
+
 
 def main():
     app = QApplication(sys.argv)

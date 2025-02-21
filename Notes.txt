@@ -1,0 +1,12 @@
+Fix the formating in japanese
+add language translation to meanings of japanese words
+
+fill the english gaps in the nltk dictionary
+
+find a proper dictionary for spanish and french
+
+give a nice design to the tooltip
+
+create a layput for cards
+    group cards in decks
+    create an algorithym for learning

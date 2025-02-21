@@ -1,4 +1,4 @@
-import spacy
+""" import spacy
 from nltk.corpus import wordnet as wn
 from nltk.corpus import stopwords
 
@@ -47,3 +47,22 @@ extractor = SynonymMeaningExtractor()
 synonyms, meanings = extractor.get_synonyms_and_meanings("yo", lang='spa')
 print("Synonyms:", synonyms)
 print("Meanings:", meanings)
+ """
+
+import requests
+
+def search_jisho(word):
+    url = f"https://jisho.org/api/v1/search/words?keyword={word}"
+    response = requests.get(url).json()
+
+    if response["data"]:
+        entry = response["data"][0]
+        return {
+            "kanji": entry["japanese"][0].get("word", ""),
+            "reading": entry["japanese"][0].get("reading", ""),
+            "meanings": [s["english_definitions"] for s in entry["senses"]]
+        }
+    return None
+
+word_info = search_jisho("ねこ")
+print(word_info)
